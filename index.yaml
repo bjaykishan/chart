@@ -29,5 +29,5 @@ entries:
     name: ibm-pem-standard-prod
     type: application
     urls:
-    - https://github.com/bjaykishan/chart/main/ibm-pem-standard-prod-1.3.0.tgz
+    - https://raw.githubusercontent.com/bjaykishan/chart/main/ibm-pem-standard-prod-1.3.0.tgz
     version: 1.3.0
