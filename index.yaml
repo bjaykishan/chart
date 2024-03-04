@@ -68,8 +68,8 @@ entries:
       For additional details regarding install parameters check https://www.ibm.com/docs/en/b2b-integrator/6.1.2?topic=integrator-installing-sterling-b2b-using-certified-container.
       License By installing this product you accept the license terms http://www14.software.ibm.com/cgi-bin/weblap/lap.pl?li_formnum=L-MZIA-CCSL2W&title=IBM%20Sterling%20B2B%20Integrator%20Certified%20Container%20V6.1.2"
     digest: 2b0faf926d91054f0ffb0d1c8a6bbe499c52a819e920308ce9aa5daf9476e683
-    home: https://www.ibm.com/docs/en/b2b-integrator/6.1.2
-    icon: https://raw.githubusercontent.com/IBM/charts/master/logo/ibm-b2bi-icon.png
+    #home: https://www.ibm.com/docs/en/b2b-integrator/6.1.2
+    #icon: https://raw.githubusercontent.com/IBM/charts/master/logo/ibm-b2bi-icon.png
     keywords:
     - b2bi
     - b2b
@@ -88,7 +88,7 @@ entries:
     name: ibm-b2bi-prod
     type: application
     urls:
-    - https://raw.githubusercontent.com/IBM/charts/master/repo/ibm-helm/ibm-b2bi-prod-2.1.6.tgz
+    - https://raw.githubusercontent.com/bjaykishan/chart/main/ibm-b2bi-prod-2.1.6.tgz
     version: 2.1.6
   - annotations:
       charts.openshift.io/name: IBM Sterling B2B Integrator
