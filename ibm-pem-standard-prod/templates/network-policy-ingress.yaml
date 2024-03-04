@@ -1,0 +1,58 @@
+# (C) Copyright 2022 Syncsort Incorporated. All rights reserved.
+{{ if .Values.license }}
+{{ if (.Values.global.networkPolicies.ingress.enabled) }}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "{{ .Release.Name }}-ingress-deny-all.network-policy"
+  labels: {{- include "network-policy.labels" . | nindent 5 }}
+spec:
+  podSelector:
+    matchLabels:
+      release: partnerEngagementStandard
+  ingress: []
+  policyTypes:
+  - Ingress
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "{{ .Release.Name }}-ingress-allow-ns.network-policy"
+  labels: {{- include "network-policy.labels" . | nindent 5 }}
+spec:
+  podSelector:
+    matchLabels:
+      release: partnerEngagementStandard
+  ingress:
+  - from:
+    - podSelector: 
+        matchLabels:          
+          release: partnerEngagementStandard
+  policyTypes:
+  - Ingress
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "{{ .Release.Name }}-ingress-allow-ext.network-policy"
+  labels: {{- include "network-policy.labels" . | nindent 5 }}
+spec:
+  podSelector:
+    matchLabels:
+      release: partnerEngagementStandard
+  ingress:
+  {{- if (.Capabilities.APIVersions.Has "route.openshift.io/v1") }}
+  - from:  
+    - namespaceSelector:
+        matchLabels:
+          network.openshift.io/policy-group: ingress 
+  {{- else }}
+  - from: []
+  {{- end }}
+    ports:
+    - port: 9443
+      protocol: TCP
+  policyTypes:
+  - Ingress
+{{- end }}
+{{- end }}

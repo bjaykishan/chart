@@ -1,0 +1,215 @@
+{{ if .Values.license }}
+{{ if .Values.masterKeyRegenerator.enable }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: "{{ .Release.Name }}.master-key-regenerator"
+  labels: {{- include "master-key-regenerator-pod.labels" . | nindent 5 }}
+  annotations:
+    # This is what defines this resource as a hook. Without this line, the
+    # job is considered part of the release.
+    "helm.sh/hook": pre-install,pre-upgrade
+    "helm.sh/hook-weight": "-2"
+    "helm.sh/hook-delete-policy": before-hook-creation,hook-succeeded
+spec:
+  backoffLimit: 0
+  template:
+    metadata:
+      name: "{{ .Release.Name }}"
+      labels: {{- include "master-key-regenerator-pod.labels" . | nindent 9 }}
+      annotations:
+        productID: {{- include "ibmpem.metering.productId" . | indent 1 }}
+        productMetric: {{- include "ibmpem.metering.productMetric" . | indent 1 }}
+        productName: {{- include "ibmpem.metering.productName" . | indent 1 }}
+        productVersion: {{- include "ibmpem.metering.productVersion" . | indent 1 }}
+        productChargedContainers: {{- include "ibmpem.metering.productChargedContainers" . | indent 1 }}
+    spec:
+      restartPolicy: Never
+      serviceAccountName: {{ .Values.serviceAccountName }}
+      affinity: {{- include "ibmpem.affinity" . | nindent 9 }}
+      volumes:
+        #Setup.cfg file for APPLICATION
+      - name: {{ .Release.Name }}-master-key-regenerator-setupfile
+        configMap:
+            name: {{ .Release.Name }}-master-key-regenerator-setupfile
+        #volumes for Resources
+      {{ if .Values.volumeClaims.resources.enabled }}
+      - name: {{ .Release.Name }}-resources
+        persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-resources-pvc
+      {{ end }}
+      #logs
+      {{ if .Values.volumeClaims.logs.enabled }}
+      - name: {{ .Release.Name }}-logs
+        persistentVolumeClaim:
+            claimName: {{ .Release.Name }}-logs-pvc
+      {{ end }}
+        #localtime (timezone for pods)
+      - name: {{ .Release.Name }}-timezone
+        configMap:
+            name: {{ .Values.timezone.configmapname}}
+        #keystore file for DB
+      {{ if .Values.dbsetup.setupfile.ssl_connection }}
+      - name: {{ .Release.Name }}-db-keystore
+        secret:
+           secretName: {{ .Values.dbsetup.setupfile.db_sslTrustStoresecret }}
+        #keystore file for Test DB
+      - name: {{ .Release.Name }}-testdb-keystore
+        secret:
+           secretName: {{ .Values.dbsetup.setupfile.testmode_db_sslTrustStoresecret }}
+      {{ end }}
+        #PassPhrase
+      - name: {{ .Release.Name }}-passphrase-old
+        secret:
+           secretName: {{ .Values.masterKeyRegenerator.passphraseOldSecret }}
+      - name: {{ .Release.Name }}-passphrase-new
+        secret:
+           secretName: {{ .Values.masterKeyRegenerator.passphraseNewSecret }}
+      imagePullSecrets:
+        - name: {{ .Values.image.pullSecret }}
+        - name: {{ .Values.test.image.pullSecret }}
+      hostNetwork: false
+      hostPID: false
+      hostIPC: false
+      securityContext:
+        runAsUser: {{ .Values.security.runAsUser | default "1011" }}
+        runAsNonRoot: true
+        supplementalGroups:
+          {{- range $.Values.security.supplementalGroups }}
+          - {{ . }}
+          {{- end }}
+        fsGroup: {{ .Values.security.fsGroup | default "1011" }}
+      initContainers:
+      - name: {{ .Release.Name }}-master-key-update-passphrase
+        image: "{{ .Values.image.name }}:{{ .Values.image.tag }}"
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        securityContext:
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            runAsUser: {{ .Values.security.runAsUser | default "1011" }}
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+        resources: {{- toYaml .Values.dbsetup.resources | nindent 11 }}
+        volumeMounts:
+          #volumes for db driver jar
+        {{ if .Values.volumeClaims.resources.enabled }}
+        - name: {{ .Release.Name }}-resources
+          mountPath: /opt/IBM/Resources/dbdrivers/
+          subPath: {{ .Values.volumeClaims.resources.subpath.dbdrivers }}
+          readOnly: true
+        {{ end }}
+          #Setup.cfg file
+        - name: {{ .Release.Name }}-master-key-regenerator-setupfile
+          mountPath: /opt/IBM/Resources/Setup.cfg
+          subPath: Setup.cfg
+          readOnly: true
+          #localtime (timezone for pod)
+        - name: {{ .Release.Name }}-timezone
+          mountPath: /opt/IBM/localtime
+          subPath: localtime
+          readOnly: true
+          #keystore files for db
+        {{ if .Values.dbsetup.setupfile.ssl_connection }}
+          #master DB keystore
+        - name: {{ .Release.Name }}-db-keystore
+          mountPath: /opt/IBM/Resources/resources/security/{{ .Values.dbsetup.setupfile.db_sslTrustStoreName }}
+          subPath: {{ .Values.dbsetup.setupfile.db_sslTrustStoreName }}
+          #Test DB keystore
+        - name: {{ .Release.Name }}-testdb-keystore
+          mountPath: /opt/IBM/Resources/resources/security/{{ .Values.dbsetup.setupfile.testmode_db_sslTrustStoreName }}
+          subPath: {{ .Values.dbsetup.setupfile.testmode_db_sslTrustStoreName }}
+        {{ end }}
+          #passphrase file
+        - name: {{ .Release.Name }}-passphrase-old
+          mountPath: /opt/IBM/Resources/passphraseOld.txt
+          subPath: passphraseOld.txt
+          readOnly: true
+        - name: {{ .Release.Name }}-passphrase-new
+          mountPath: /opt/IBM/Resources/passphraseNew.txt
+          subPath: passphraseNew.txt
+          readOnly: true
+        env:
+        - name: application
+          value: masterkeyregen
+        envFrom:
+        - secretRef:
+            name: {{ .Values.dbsetup.setupfile.db_password }}
+        - secretRef:
+            name: {{ .Values.dbsetup.setupfile.testmode_db_password }}
+        #optional
+        {{ if .Values.dbsetup.setupfile.ssl_connection }}
+        - secretRef:
+            name: {{ .Values.dbsetup.setupfile.db_sslTrustStorePassword }}
+        - secretRef:
+            name: {{ .Values.dbsetup.setupfile.testmode_db_sslTrustStorePassword }}
+        {{ end }}
+      - name: {{ .Release.Name }}-master-key-patch-secret
+        image: "{{ .Values.test.image.repository }}/{{ .Values.test.image.name }}:{{ .Values.test.image.tag }}"
+        imagePullPolicy: "{{ .Values.test.image.pullPolicy }}"
+        securityContext:
+            capabilities:
+              drop:
+                - ALL
+            privileged: false
+            runAsUser: {{ .Values.security.runAsUser | default "1011" }}
+            readOnlyRootFilesystem: false
+            allowPrivilegeEscalation: false
+        resources:
+          requests:
+            memory: 128Mi
+            cpu: 10m
+            ephemeral-storage: "16Mi"
+          limits:
+            memory: 128Mi
+            cpu: 50m
+            ephemeral-storage: "32Mi"
+        env: 
+          - name: NEW_PASSPHRASE 
+            valueFrom: 
+              secretKeyRef: 
+                name: {{ .Values.masterKeyRegenerator.passphraseNewSecret }} 
+                key: passphraseNew.txt
+        command:
+        - "/bin/bash"
+        - -c
+        - |
+          echo "starting patch secret job..."
+          PASSPHRASE_SECRET_NAME={{ .Values.dbsetup.setupfile.passphrasesecret }}
+          NEW_PASSPHRASE_ENCODED=$(echo -n "$NEW_PASSPHRASE" | base64)
+          kubectl patch secret ${PASSPHRASE_SECRET_NAME} -p='{"data":{"passphrase.txt": "'"${NEW_PASSPHRASE_ENCODED}"'"}}'
+          echo "restarting pods..."
+          {{- if .Values.pem.enable }}
+          pemDeployments=$(kubectl get deployment {{ .Release.Name }}-pem-deployment --ignore-not-found | awk 'NR>1{print $1}')
+          if [[ $pemDeployments != '' ]]; then
+          kubectl set env deployment {{ .Release.Name }}-pem-deployment DEPLOY_DATE="$(date)"
+          else
+          echo "No pem pod exists to restart!"
+          fi
+          {{- end }}
+          {{- if .Values.pr.enable }}
+          prDeployments=$(kubectl get deployment {{ .Release.Name }}-pr-deployment --ignore-not-found | awk 'NR>1{print $1}')
+          if [[ $prDeployments != '' ]]; then
+          kubectl set env deployment {{ .Release.Name }}-pr-deployment DEPLOY_DATE="$(date)"
+          else
+          echo "No pr pod exists to restart!"
+          fi
+          {{- end }}
+          {{- if .Values.pp.enable }}
+          ppDeployments=$(kubectl get deployment {{ .Release.Name }}-pp-deployment --ignore-not-found | awk 'NR>1{print $1}')
+          if [[ $ppDeployments != '' ]]; then
+          kubectl set env deployment {{ .Release.Name }}-pp-deployment DEPLOY_DATE="$(date)"
+          else
+          echo "No pp pod exists to restart!"
+          fi
+          {{- end }}
+
+      containers:
+      - name: {{ .Release.Name }}-master-key-regenerator
+        image: busybox
+        command: ['sh', '-c', 'echo "Master Key Regenerator completed successfully."']   
+
+
+{{ end }}
+{{ end }}

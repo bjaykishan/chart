@@ -1,0 +1,69 @@
+# (C) Copyright 2022 Syncsort Incorporated. All rights reserved.
+{{ if .Values.license }}
+{{ if (.Values.global.networkPolicies.egress.enabled) }}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "{{ .Release.Name }}-egress-deny-all.network-policy"
+  labels: {{- include "network-policy.labels" . | nindent 5 }}
+spec:
+  podSelector:
+    matchLabels:
+      release: partnerEngagementStandard
+  egress: []
+  policyTypes:
+  - Egress
+---
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "{{ .Release.Name }}-egress-allow-ns.network-policy"
+  labels: {{- include "network-policy.labels" . | nindent 5 }}
+spec:
+  podSelector:
+    matchLabels:
+      release: partnerEngagementStandard
+  egress:
+  - to:
+    - namespaceSelector: {}   
+  policyTypes:
+  - Egress
+---
+{{- $customPolicies := dict -}}
+{{- if (.Values.global.networkPolicies.egress.customPolicies) }}
+{{- $_ := set $customPolicies "global" .Values.global.networkPolicies.egress.customPolicies }}
+{{- end }}
+
+{{ if ($customPolicies) }}
+{{ range $componentName := keys $customPolicies -}}
+{{ range $i, $networkPolicy := get $customPolicies $componentName -}}
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: "{{ $.Release.Name }}-egress-custom.network-policy"
+  labels: {{- include "network-policy.labels" $ | nindent 5 }}
+spec:
+  podSelector:
+    matchLabels:
+      release: partnerEngagementStandard
+  egress:
+  -
+    {{- if $networkPolicy.toSelectors }}
+    to:
+    {{- with $networkPolicy.toSelectors }}
+    {{ toYaml . | nindent 4 }}
+    {{- end }}
+    {{- end }}
+    {{- if $networkPolicy.ports }}
+    ports:
+    {{- with $networkPolicy.ports }}
+    {{ toYaml . | nindent 4 }}
+    {{- end }}
+    {{- end }}
+  policyTypes:
+  - Egress
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
+{{- end }}
