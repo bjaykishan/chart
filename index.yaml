@@ -9600,7 +9600,7 @@ entries:
     name: ibm-sfg-prod
     type: application
     urls:
-    - https://raw.githubusercontent.com/bjaykishan/chart/main/ibm-helm/ibm-sfg-prod-3.0.0.tgz
+    - https://raw.githubusercontent.com/bjaykishan/chart/main/ibm-sfg-prod-3.0.0.tgz
     version: 3.0.0
   - annotations:
       charts.openshift.io/name: IBM Sterling File Gateway
