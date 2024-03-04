@@ -6017,8 +6017,8 @@ entries:
       check https://www.ibm.com/docs/en/spems/6.2.3?topic=container-prerequisites.
       License By installing this product you accept the license terms https://www14.software.ibm.com/cgi-bin/weblap/lap.pl?li_formnum=L-BTGF-XLKNU9&title=IBM%20PEM%20Certified%20Container."
     digest: c977566ec119ffa01a35401bb8170ab7ea460bad50605526c1d9144299bbf51d
-    home: https://www.ibm.com/docs/en/spems/6.2.3
-    icon: https://raw.githubusercontent.com/IBM/charts/master/logo/ibm-pem-icon.png
+    #home: https://www.ibm.com/docs/en/spems/6.2.3
+    #icon: https://raw.githubusercontent.com/IBM/charts/master/logo/ibm-pem-icon.png
     keywords:
     - pem
     - pemstandard
